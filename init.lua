@@ -47,7 +47,11 @@ sheriff_voting:load();
 --also allows people to vote again
 for key, val in pairs(sheriff_voting.candidate_by_name) do
 	val.ip_voters={}
-    if val.votes > 0 then
+    if val.votes > sheriff_voting.vote_needed*4 then
+        val.votes = val.votes - 2;
+    elseif val.votes < -sheriff_voting.vote_needed*4 then
+        val.votes = val.votes + 2;  --at least a little hope to not be demoted eternally
+    elseif val.votes > 0 then
         val.votes = val.votes - 1;
     elseif val.votes < 0 then
         val.votes = val.votes + 1;
@@ -99,7 +103,8 @@ sheriff_voting.on_rightclick = function(pos, node, player, itemstack, pointed_th
         local formspec = "size[6,3;]"..
             "label[0,0;Vote to promote player <".. candidate_name .."> as sheriff?]"..
             "button_exit[0,1;2,0.5;confirm;Yes, trust him.]"..
-            "button_exit[3,1;3,0.5;cancel;No, <".. candidate_name .."> is bad.]";
+            "button_exit[3,1;3,0.5;cancel;No, <".. candidate_name .."> is bad.]"..
+            "button_exit[1,2;3,0.5;cancel2;No, <".. candidate_name .."> is fearsome.]";
         sheriff_voting.formspec_buffer[player_name] = {candidate=candidate_name, pos=pos};
         minetest.show_formspec(player_name, "sheriff_voting:vote", formspec)
     elseif candidate_name then
@@ -132,6 +137,24 @@ sheriff_voting.on_voting = function(player, formname, fields)
                 local votes_result = sheriff_voting.candidate_by_name[candidate_name].votes - 1;
                 sheriff_voting.candidate_by_name[candidate_name].votes = votes_result;
                 minetest.chat_send_all("Voted by <"..player_name.."> to demote <"..candidate_name..">. Result:"..votes_result.." of ".. sheriff_voting.vote_needed);
+                minetest.log("action", "Voted by <"..player_name.."> to demote <"..candidate_name..">. Result:"..votes_result.." of ".. sheriff_voting.vote_needed);
+                if votes_result == (sheriff_voting.vote_needed-1) then
+                    minetest.chat_send_all("Player <"..candidate_name.."> is no longer sheriff." );
+                    
+                    --Unmute all victims of old sheriff
+                    for key, val in pairs(sheriff_voting.mute_by_name) do
+                        if val == candidate_name then
+                            sheriff_voting.mute_by_name[key] = nil;
+                        end
+                    end
+                    
+                end
+            elseif fields.cancel2 then
+                sheriff_voting.candidate_by_name[candidate_name].ip_voters[player_ip] = "voted";
+                
+                local votes_result = sheriff_voting.candidate_by_name[candidate_name].votes - 1;
+                sheriff_voting.candidate_by_name[candidate_name].votes = votes_result;
+                minetest.chat_send_all("Voted by scared player to demote <"..candidate_name..">. Result:"..votes_result.." of ".. sheriff_voting.vote_needed);
                 minetest.log("action", "Voted by <"..player_name.."> to demote <"..candidate_name..">. Result:"..votes_result.." of ".. sheriff_voting.vote_needed);
                 if votes_result == (sheriff_voting.vote_needed-1) then
                     minetest.chat_send_all("Player <"..candidate_name.."> is no longer sheriff." );
@@ -278,6 +301,24 @@ minetest.register_chatcommand("kicks", {
 				minetest.chat_send_player(sheriffname, "You need to be sheriff with at least"..(sheriff_voting.vote_needed*3).." votes.");
 			end
 		end
+	end,
+})
+
+minetest.register_chatcommand("sheriffs", {
+	params = "",
+	description = "List all sheriff names.",
+	func = function(playername)
+        for key, val in pairs(sheriff_voting.candidate_by_name) do
+            if val.votes >= sheriff_voting.vote_needed*3 then
+                minetest.chat_send_player(playername, "Sheriff ***"..key.."***");
+            elseif val.votes >= sheriff_voting.vote_needed*2 then
+                minetest.chat_send_player(playername, "Sheriff **"..key.."**");
+            elseif val.votes >= sheriff_voting.vote_needed then
+                minetest.chat_send_player(playername, "Sheriff *"..key.."*");
+            elseif val.votes < -sheriff_voting.vote_needed then
+                minetest.chat_send_player(playername, "Outlaw -"..key.."-");
+            end
+        end
 	end,
 })
 
