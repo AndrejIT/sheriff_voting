@@ -7,7 +7,7 @@
 --version 2.1 of the License, or (at your option) any later version.
 
 sheriff_voting={}
-sheriff_voting.vote_needed=5;  --needed votes
+sheriff_voting.vote_needed=8;  --needed votes
 sheriff_voting.formspec_buffer={}
 sheriff_voting.candidate_by_name={}
 
@@ -47,10 +47,10 @@ sheriff_voting:load();
 --also allows people to vote again
 for key, val in pairs(sheriff_voting.candidate_by_name) do
 	val.ip_voters={}
-    if val.votes > sheriff_voting.vote_needed*4 then
-        val.votes = val.votes - 2;
-    elseif val.votes < -sheriff_voting.vote_needed*4 then
-        val.votes = val.votes + 2;  --at least a little hope to not be demoted eternally
+    if val.votes > 30 then
+        val.votes = val.votes - math.floor(val.votes/10);   -- 10% off to prevent creation of "untouchable" sheriff
+    elseif val.votes < -30 then
+        val.votes = val.votes + math.floor(math.abs(val.votes)/10);  --at least a little hope to not be demoted eternally
     elseif val.votes > 0 then
         val.votes = val.votes - 1;
     elseif val.votes < 0 then
